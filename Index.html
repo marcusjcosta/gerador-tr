@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de TR — V2.5</title>
+  <style>
+    :root {
+      --bg:#f6f8fb;
+      --panel:#ffffff;
+      --border:#d8dee8;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --accent:#1d4ed8;
+      --accent-soft:#eff6ff;
+      --danger:#b91c1c;
+      --danger-soft:#fef2f2;
+      --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.04);
+      --left-width: 64%;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--text); background:var(--bg); }
+    header {
+      position:sticky; top:0; z-index:20; background:#fff;
+      border-bottom:1px solid var(--border); padding:16px 20px;
+    }
+    h1 { margin:0 0 6px 0; font-size:28px; }
+    .subtitle { color:var(--muted); font-size:14px; }
+    .topbar { margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .status { font-size:13px; color:var(--muted); }
+    button,.buttonlike,input[type="file"]::file-selector-button {
+      border:1px solid var(--border); background:#fff; color:var(--text);
+      border-radius:10px; padding:10px 14px; cursor:pointer; font-size:14px;
+    }
+    button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    button.secondary { background:var(--accent-soft); border-color:#bfdbfe; color:#1e3a8a; }
+    button.ghost { background:#fff; color:var(--muted); }
+
+    .container {
+      display:grid;
+      grid-template-columns: minmax(760px, var(--left-width)) 10px minmax(320px, 1fr);
+      gap:0;
+      padding:16px;
+      height:calc(100vh - 104px);
+      align-items:stretch;
+    }
+    .splitter {
+      width:10px;
+      cursor:col-resize;
+      background:transparent;
+      position:relative;
+      align-self:stretch;
+    }
+    .splitter::before {
+      content:"";
+      position:absolute;
+      left:4px; top:0; bottom:0;
+      width:2px;
+      background:#e5e7eb;
+      border-radius:999px;
+    }
+
+    .panel {
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:14px; box-shadow:var(--shadow); overflow:hidden;
+      min-width:0;
+      display:flex; flex-direction:column; height:100%;
+    }
+    .panel.left { margin-right:8px; }
+    .panel.right { margin-left:8px; }
+    .panel .panel-body { flex:1; overflow:auto; min-height:0; }
+
+    .panel-header {
+      padding:14px 16px; border-bottom:1px solid var(--border); background:#fbfcfe;
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      flex-wrap:wrap; font-weight:700;
+    }
+    .panel-body { padding:16px; }
+
+    .filters {
+      display:grid;
+      grid-template-columns: minmax(240px,1.2fr) minmax(180px,1fr) minmax(160px,1fr);
+      gap:10px; margin-bottom:14px;
+    }
+    input[type="text"],select,textarea {
+      width:100%; border:1px solid var(--border); border-radius:10px;
+      padding:10px 12px; font-size:14px; background:#fff; color:var(--text);
+      min-width:0;
+    }
+    .quick-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+
+    .macro-list {
+      display:flex; flex-direction:column; gap:12px;
+      padding-right:4px;
+    }
+    .macro-group {
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .macro-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:12px 14px;
+      background:#f8fafc;
+      border-bottom:1px solid var(--border);
+      cursor:pointer;
+    }
+    .macro-title { font-weight:700; font-size:16px; }
+    .macro-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+    .macro-content { display:block; padding:10px; }
+    .macro-group.closed .macro-content { display:none; }
+
+    .product-card {
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      overflow:hidden;
+      margin-bottom:10px;
+    }
+    .product-card.required {
+      border-left:5px solid var(--danger);
+      background:var(--danger-soft);
+    }
+    .product-summary {
+      display:grid;
+      grid-template-columns: 28px minmax(0,1fr) 110px;
+      gap:12px;
+      align-items:start;
+      padding:14px;
+    }
+    .product-title {
+      font-weight:700;
+      margin-bottom:6px;
+      white-space:normal;
+      word-break:break-word;
+      line-height:1.35;
+      font-size:18px;
+    }
+    .product-meta {
+      font-size:14px;
+      color:var(--muted);
+    }
+    .badge {
+      display:inline-block; font-size:12px; border:1px solid var(--border);
+      border-radius:999px; padding:3px 8px; margin-left:6px; background:#fff;
+      vertical-align:middle;
+    }
+    .badge.required { border-color:#fecaca; background:#fff; color:var(--danger); }
+    .badge.macro { border-color:#bfdbfe; background:#eff6ff; color:#1e3a8a; }
+
+    .product-details {
+      display:none;
+      border-top:1px solid var(--border);
+      padding:14px;
+      background:#fcfdff;
+    }
+    .product-card.open .product-details { display:block; }
+
+    .field { margin-top:12px; }
+    .field label {
+      display:block;
+      font-size:12px;
+      font-weight:700;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+
+    .activity-list { display:flex; flex-direction:column; gap:8px; }
+    .activity-item {
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      background:#fff;
+    }
+    .activity-row {
+      display:grid;
+      grid-template-columns:28px minmax(0,1fr);
+      gap:8px;
+      align-items:flex-start;
+    }
+
+    .small { font-size:12px; color:var(--muted); }
+    .dep-box {
+      display:none; margin-top:10px; padding:10px 12px; border:1px solid #bfdbfe;
+      background:#eff6ff; border-radius:10px;
+    }
+
+    .preview {
+      line-height:1.55;
+      min-width:0;
+    }
+    .preview h2 {
+      margin:18px 0 8px;
+      font-size:20px;
+      border-bottom:1px solid var(--border);
+      padding-bottom:4px;
+      word-break:break-word;
+    }
+    .preview h3 { margin:14px 0 6px; font-size:15px; }
+    .preview ul { margin:6px 0 10px 20px; padding:0; }
+    .preview p { margin:0 0 8px; word-break:break-word; }
+
+    .notice {
+      display:none; margin-bottom:10px; padding:10px 12px; border-radius:10px;
+      border:1px solid #fcd34d; background:#fffbeb; color:#92400e; font-size:14px;
+    }
+
+    @media (max-width: 1320px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap:16px;
+        height:auto;
+        min-height:calc(100vh - 104px);
+      }
+      .splitter { display:none; }
+      .panel.left, .panel.right { margin:0; height:auto; }
+      .panel .panel-body { overflow:visible; }
+      .macro-list,.preview { max-height:none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Gerador de Blocos para Termo de Referência</h1>
+    <div class="subtitle">Selecione os produtos, ajuste os campos e monte o texto do TR com base na sua base estruturada.</div>
+    <div class="topbar">
+      <button id="btnResetEmbedded" class="secondary">Carregar base padrão embutida</button>
+      <label class="buttonlike">
+        Selecionar JSON
+        <input id="jsonFileInput" type="file" accept=".json,application/json" style="display:none;">
+      </label>
+      <button id="btnExportBase">Exportar base atualizada</button>
+      <button id="btnResetLocal" class="ghost">Limpar alterações locais</button>
+      <span id="baseStatus" class="status">Nenhuma base carregada.</span>
+    </div>
+  </header>
+
+  <div class="container" id="appContainer">
+    <section class="panel left">
+      <div class="panel-header">
+        <span>Seleção e edição</span>
+        <span id="countStatus" class="small">0 produto(s) selecionado(s)</span>
+      </div>
+      <div class="panel-body">
+        <div id="globalNotice" class="notice"></div>
+
+        <div class="filters">
+          <input id="keywordFilter" type="text" placeholder="Buscar por produto, macroetapa ou atividade">
+          <select id="macroFilter"><option value="">Todas as macroetapas</option></select>
+          <select id="requiredFilter">
+            <option value="">Todos</option>
+            <option value="sim">Obrigatórios</option>
+            <option value="nao">Não obrigatórios</option>
+          </select>
+        </div>
+
+        <div class="quick-actions">
+          <button id="btnExpandAll">Expandir todas as macroetapas</button>
+          <button id="btnCollapseAll">Recolher todas</button>
+          <button id="btnSelectAllVisible">Selecionar visíveis</button>
+          <button id="btnClearNonRequired">Limpar não obrigatórios</button>
+        </div>
+
+        <div id="macroList" class="macro-list"></div>
+      </div>
+    </section>
+
+    <div class="splitter" id="splitter" aria-hidden="true"></div>
+
+    <section class="panel right">
+      <div class="panel-header">
+        <span>Prévia do texto do TR</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btnRegenerate" class="secondary">Atualizar prévia</button>
+          <button id="btnCopyText" class="primary">Copiar texto</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="small" style="margin-bottom:10px;">
+          O texto abaixo é montado na ordem do campo <strong>Ordem</strong>. Você pode ajustar o conteúdo no painel esquerdo e atualizar a prévia.
+        </div>
+        <textarea id="finalIntro" rows="3" placeholder="(Opcional) Escreva uma observação inicial para aparecer antes dos produtos na prévia."></textarea>
+        <div style="height:12px;"></div>
+        <div id="preview" class="preview" contenteditable="true"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'tr_generator_base_v24';
+    const EMBEDDED_BASE = {"versao_base": "1.0", "atualizado_em": "2026-03-26", "fonte": "base_TR_planejamento_estrategico_preenchida.xlsx", "produtos": [{"id_produto": "PE01", "produto": "Mobilização do Projeto", "macroetapa": "Preparação", "ordem": 1, "descricao": "Produto destinado à organização inicial da execução, compreendendo o levantamento preliminar de documentos e informações, a identificação dos atores envolvidos, a definição de pontos focais e a pactuação do cronograma detalhado de trabalho.", "objetivo": "Assegurar as condições iniciais necessárias para o desenvolvimento ordenado das etapas subsequentes da consultoria.", "escopo": "Organização dos insumos de partida do projeto, mobilização dos participantes e formalização do planejamento executivo inicial.", "atividades": [{"id": "PE01-AT01", "texto": "levantar documentos e bases já disponíveis", "selecionada_padrao": true, "personalizada": false}, {"id": "PE01-AT02", "texto": "identificar participantes, responsáveis e pontos focais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE01-AT03", "texto": "mapear stakeholders essenciais à execução", "selecionada_padrao": true, "personalizada": false}, {"id": "PE01-AT04", "texto": "consolidar cronograma, marcos e agenda de trabalho", "selecionada_padrao": true, "personalizada": false}, {"id": "PE01-AT05", "texto": "submeter o planejamento inicial à validação da contratante.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Plano de trabalho contendo levantamento preliminar, mapeamento de participantes e cronograma aprovado.", "medicao": "Entrega de documento contendo o levantamento preliminar dos insumos do projeto, a identificação dos participantes e o cronograma de execução validado.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento entregue no formato pactuado, com cronograma exequível, indicação dos responsáveis e validação formal da contratante.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": [], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser incorporado ao diagnóstico inicial em TRs mais enxutos ou contratado como produto autônomo quando houver necessidade de maior mobilização inicial."}, {"id_produto": "PE02", "produto": "Diagnóstico Institucional", "macroetapa": "Diagnóstico", "ordem": 2, "descricao": "Produto voltado ao entendimento e à análise do contexto atual da organização, de sua estratégia, de seus programas, projetos e iniciativas, mediante análise documental, escutas qualificadas e consolidação de evidências para subsidiar a formulação estratégica.", "objetivo": "Compreender a situação atual da organização, identificar gargalos, oportunidades de melhoria e elementos críticos para a construção ou revisão do planejamento estratégico.", "escopo": "Levantamento do contexto institucional, análise do ambiente interno e externo e consolidação dos principais achados que servirão de base para as etapas seguintes.", "atividades": [{"id": "PE02-AT01", "texto": "analisar documentos estratégicos, normativos, planos e programas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE02-AT02", "texto": "realizar entrevistas, reuniões de escuta, grupos focais e/ou aplicação de formulários", "selecionada_padrao": true, "personalizada": false}, {"id": "PE02-AT03", "texto": "mapear stakeholders e fontes relevantes de informação", "selecionada_padrao": true, "personalizada": false}, {"id": "PE02-AT04", "texto": "consolidar dados, evidências e percepções institucionais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE02-AT05", "texto": "identificar compatibilidades, divergências, riscos e oportunidades.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório de diagnóstico institucional com análise consolidada da situação atual da organização.", "medicao": "Entrega de documento contendo o conjunto dos levantamentos, análises e definições necessários à concretização do diagnóstico inicial da contratante.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento com análise contextual consistente, evidências suficientes, identificação de achados críticos e validação pela contratante.", "prazo_execucao": "3 a 6 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE01"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Produto estruturante da solução. Em alguns TRs aparece sob a nomenclatura de contextualização."}, {"id_produto": "PE03", "produto": "Análise do Planejamento Estratégico Vigente", "macroetapa": "Diagnóstico", "ordem": 3, "descricao": "Produto destinado à compreensão e avaliação crítica do planejamento estratégico vigente e de instrumentos correlatos, com análise de aderência, resultados já alcançados, lacunas e necessidade de revisão da visão de longo prazo.", "objetivo": "Avaliar o estágio atual do planejamento existente e identificar ajustes necessários para orientar a revisão estratégica.", "escopo": "Exame do planejamento em vigor e de instrumentos associados, com leitura crítica de resultados, coerência interna e alinhamento institucional.", "atividades": [{"id": "PE03-AT01", "texto": "analisar planos, programas, PPA e instrumentos correlatos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE03-AT02", "texto": "verificar o que foi alcançado, o que permanece válido e o que demanda revisão", "selecionada_padrao": true, "personalizada": false}, {"id": "PE03-AT03", "texto": "realizar oficinas colaborativas para discussão dos achados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE03-AT04", "texto": "sintetizar conclusões sobre o planejamento vigente", "selecionada_padrao": true, "personalizada": false}, {"id": "PE03-AT05", "texto": "recomendar pontos de atualização ou redesenho.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório de análise crítica do planejamento vigente e síntese das oficinas realizadas.", "medicao": "Entrega de relatório contendo análise do planejamento vigente, identificação de lacunas e recomendações para sua revisão.", "tipo_medicao": "", "unidade_medicao": "Relatório", "frequencia": "Única", "criterio_aceite": "Relatório com análise comparativa dos instrumentos vigentes, conclusões objetivas e recomendações tecnicamente fundamentadas.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE01", "PE02"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser tratado como subetapa do diagnóstico inicial ou como produto autônomo quando a revisão do planejamento vigente exigir aprofundamento específico."}, {"id_produto": "PE04", "produto": "Diretrizes Estratégicas", "macroetapa": "Formulação Estratégica", "ordem": 4, "descricao": "Produto destinado à definição ou revisão da visão de futuro, dos eixos temáticos e dos objetivos estratégicos da organização, incluindo sua consolidação em documento estruturado e representação sintética por meio de mapa estratégico.", "objetivo": "Estabelecer o direcionamento estratégico da organização de forma clara, compartilhada e orientada a resultados.", "escopo": "Formulação das diretrizes estratégicas e consolidação da arquitetura estratégica da organização em documento estruturado e representação visual.", "atividades": [{"id": "PE04-AT01", "texto": "conduzir oficinas de cocriação com lideranças e equipes técnicas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE04-AT02", "texto": "definir ou revisar visão de futuro, eixos temáticos e objetivos estratégicos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE04-AT03", "texto": "construir carteira preliminar de projetos/iniciativas prioritárias", "selecionada_padrao": true, "personalizada": false}, {"id": "PE04-AT04", "texto": "validar as definições com a alta gestão", "selecionada_padrao": true, "personalizada": false}, {"id": "PE04-AT05", "texto": "elaborar o mapa estratégico e o documento consolidado das diretrizes.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento contendo as diretrizes estratégicas validadas, incluindo visão de futuro, eixos temáticos, objetivos estratégicos e mapa estratégico.", "medicao": "Entrega de documento contendo as diretrizes estratégicas consolidadas e sua representação em mapa estratégico, validado pela contratante.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento validado pela contratante, contendo visão, eixos, objetivos estratégicos e mapa estratégico em formato utilizável para comunicação interna.", "prazo_execucao": "3 a 5 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE02", "PE03"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Produto estruturante da solução. Em alguns TRs aparece associado à revisão da estratégia."}, {"id_produto": "PE05", "produto": "Metas e Indicadores Estratégicos", "macroetapa": "Formulação Estratégica", "ordem": 5, "descricao": "Produto voltado à definição do conjunto de metas e indicadores estratégicos da organização, incluindo memória de cálculo, projeções, responsáveis e periodicidade de monitoramento, de modo a traduzir os objetivos em critérios verificáveis de sucesso.", "objetivo": "Definir métricas claras, mensuráveis e monitoráveis para o acompanhamento da estratégia.", "escopo": "Construção da base de indicadores e metas vinculadas aos objetivos estratégicos, com regras de mensuração e monitoramento.", "atividades": [{"id": "PE05-AT01", "texto": "levantar base histórica de dados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE05-AT02", "texto": "definir indicadores para cada objetivo estratégico", "selecionada_padrao": true, "personalizada": false}, {"id": "PE05-AT03", "texto": "construir memória de cálculo e projeções plurianuais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE05-AT04", "texto": "definir metas quantitativas e qualitativas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE05-AT05", "texto": "estabelecer responsáveis, fontes, periodicidade e forma de coleta.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento contendo metas, indicadores, memória de cálculo e regras de monitoramento.", "medicao": "Entrega de documento contendo metas, indicadores e resultados esperados, com definição da forma de mensuração e de monitoramento.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento com indicadores aderentes à estratégia, metas definidas, memória de cálculo explicitada e validação formal da contratante.", "prazo_execucao": "3 a 5 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE04"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Produto estruturante da solução. Pode ser contratado em conjunto com PE04 em escopos mais compactos."}, {"id_produto": "PE06", "produto": "Plano de Implementação da Estratégia", "macroetapa": "Planejamento Tático", "ordem": 6, "descricao": "Produto destinado ao desdobramento da estratégia em iniciativas, projetos, ações, responsáveis, prazos e marcos de execução, traduzindo os objetivos e metas estratégicos em plano operacional de implementação.", "objetivo": "Converter a estratégia em ações concretas, executáveis e monitoráveis.", "escopo": "Estruturação do plano de implementação da estratégia com definição de ações, cronograma, responsáveis e mecanismos de acompanhamento.", "atividades": [{"id": "PE06-AT01", "texto": "realizar oficinas de desdobramento da estratégia", "selecionada_padrao": true, "personalizada": false}, {"id": "PE06-AT02", "texto": "estruturar iniciativas, projetos e ações por objetivo estratégico", "selecionada_padrao": true, "personalizada": false}, {"id": "PE06-AT03", "texto": "definir responsáveis, prazos e entregas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE06-AT04", "texto": "pactuar cronograma de execução", "selecionada_padrao": true, "personalizada": false}, {"id": "PE06-AT05", "texto": "validar o plano com lideranças e responsáveis.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento contendo plano de ação/plano tático/plano de implementação consolidado.", "medicao": "Entrega do plano de ação ou plano de implementação do planejamento estratégico, com definição de atividades, responsáveis, prazos e mecanismos de acompanhamento.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento validado pela contratante, contendo ações claramente estruturadas, responsáveis definidos, cronograma e aderência às metas pactuadas.", "prazo_execucao": "3 a 5 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE05"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Produto estruturante da solução. Pode incluir monitoramento inicial da qualidade dos planos quando isso for relevante para o TR."}, {"id_produto": "PE07", "produto": "Plano de Engajamento e Comunicação da Estratégia", "macroetapa": "Implementação", "ordem": 7, "descricao": "Produto voltado à mobilização e ao engajamento dos públicos envolvidos na implementação da estratégia, por meio de plano de comunicação, peças de divulgação, ações de multiplicação e instrumentos de alinhamento institucional.", "objetivo": "Favorecer a adesão dos atores-chave à estratégia, reduzir resistências e ampliar a capacidade de disseminação do planejamento na organização.", "escopo": "Planejamento e execução de ações de comunicação e sensibilização para sustentar a implementação da estratégia.", "atividades": [{"id": "PE07-AT01", "texto": "construir plano de sensibilização com ações, datas e responsáveis", "selecionada_padrao": true, "personalizada": false}, {"id": "PE07-AT02", "texto": "desenvolver peças e apresentações de comunicação", "selecionada_padrao": true, "personalizada": false}, {"id": "PE07-AT03", "texto": "estruturar plano de multiplicação da estratégia", "selecionada_padrao": true, "personalizada": false}, {"id": "PE07-AT04", "texto": "produzir conteúdos de divulgação e orientação", "selecionada_padrao": true, "personalizada": false}, {"id": "PE07-AT05", "texto": "apoiar a disseminação do mapa estratégico e das mensagens-chave.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Conjunto de peças e instrumentos de comunicação para sensibilização e engajamento, acompanhado de plano de execução.", "medicao": "Entrega do conjunto de peças, materiais e instrumentos de comunicação previstos no plano de sensibilização e engajamento.", "tipo_medicao": "", "unidade_medicao": "Documentos e mídia", "frequencia": "Única", "criterio_aceite": "Materiais entregues nos formatos pactuados, coerentes com a estratégia definida e aptos à utilização pela contratante.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE04", "PE06"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Recomendado quando a implementação demandar forte componente de comunicação interna, mobilização territorial ou multiplicação da estratégia."}, {"id_produto": "PE08", "produto": "Diagnóstico da Estrutura Organizacional", "macroetapa": "Governança e Estrutura", "ordem": 8, "descricao": "Produto destinado à identificação da estrutura organizacional atual, dos cargos, funções, interfaces de trabalho e instrumentos normativos vigentes, com vistas a subsidiar a definição de ajustes estruturais e de modelo de governança e de assessoramento técnico.", "objetivo": "Mapear a organização existente e identificar ajustes necessários para a sustentação da estratégia.", "escopo": "Levantamento da estrutura atual (AS IS), fluxos de trabalho, atribuições e pontos de interface entre áreas e níveis organizacionais.", "atividades": [{"id": "PE08-AT01", "texto": "mapear cargos, funções e responsabilidades", "selecionada_padrao": true, "personalizada": false}, {"id": "PE08-AT02", "texto": "analisar interfaces entre áreas/unidades", "selecionada_padrao": true, "personalizada": false}, {"id": "PE08-AT03", "texto": "examinar normativos e instrumentos de atribuição", "selecionada_padrao": true, "personalizada": false}, {"id": "PE08-AT04", "texto": "identificar gargalos, sobreposições e vazios de governança", "selecionada_padrao": true, "personalizada": false}, {"id": "PE08-AT05", "texto": "consolidar achados para subsidiar a estruturação futura.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório diagnóstico da estrutura organizacional atual.", "medicao": "Entrega de relatório contendo o diagnóstico da estrutura organizacional, com levantamento de cargos, interfaces e análise dos normativos aplicáveis.", "tipo_medicao": "", "unidade_medicao": "Relatório", "frequencia": "Única", "criterio_aceite": "Relatório com mapeamento suficiente da estrutura atual, achados organizacionais relevantes e utilidade para subsidiar a etapa de governança.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE02"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Indicado quando a solução incluir UAT, UCT, EGPP ou outra estrutura permanente de apoio à execução da estratégia."}, {"id_produto": "PE09", "produto": "Modelo de Governança", "macroetapa": "Governança e Estrutura", "ordem": 9, "descricao": "Produto destinado à definição do modelo de governança da estratégia e/ou da unidade de assessoramento, com especificação de instâncias, papéis, atribuições, responsabilidades e fluxo decisório aplicáveis à execução do objeto.", "objetivo": "Estabelecer uma arquitetura clara de decisão, coordenação e responsabilização para a implementação da estratégia.", "escopo": "Desenho do modelo de governança institucional e operacional da solução, incluindo definição de instâncias e responsabilidades.", "atividades": [{"id": "PE09-AT01", "texto": "avaliar alternativas de governança aplicáveis ao caso", "selecionada_padrao": true, "personalizada": false}, {"id": "PE09-AT02", "texto": "definir instâncias, papéis e responsabilidades", "selecionada_padrao": true, "personalizada": false}, {"id": "PE09-AT03", "texto": "estabelecer fluxo de decisão, escalonamento e reporte", "selecionada_padrao": true, "personalizada": false}, {"id": "PE09-AT04", "texto": "pactuar atribuições com a contratante", "selecionada_padrao": true, "personalizada": false}, {"id": "PE09-AT05", "texto": "consolidar o modelo em documento técnico.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento técnico contendo o modelo de governança aprovado.", "medicao": "Entrega de documento contendo o modelo de governança da solução, com definição de papéis, atribuições, responsabilidades e fluxos decisórios.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento tecnicamente consistente, aderente à realidade da contratante e formalmente validado pelas instâncias competentes.", "prazo_execucao": "2 a 3 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE08", "PE06"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser aplicado à governança geral da estratégia ou à governança específica da unidade/escritório de assessoramento."}, {"id_produto": "PE10", "produto": "Norma de Funcionamento da Estrutura de Assessoramento", "macroetapa": "Governança e Estrutura", "ordem": 10, "descricao": "Produto destinado à elaboração da norma de funcionamento da unidade ou escritório responsável por apoiar a implementação da estratégia, disciplinando ritos, processos operacionais, competências e diretrizes de atuação.", "objetivo": "Formalizar as regras de funcionamento da estrutura de assessoramento estratégico.", "escopo": "Construção do instrumento normativo que rege a rotina, os procedimentos e a atuação da estrutura de apoio à estratégia.", "atividades": [{"id": "PE10-AT01", "texto": "conduzir oficina para pactuar normas e ritos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE10-AT02", "texto": "definir competências, processos e fluxos operacionais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE10-AT03", "texto": "elaborar minuta da norma de funcionamento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE10-AT04", "texto": "revisar o instrumento com a contratante", "selecionada_padrao": true, "personalizada": false}, {"id": "PE10-AT05", "texto": "consolidar versão final apta à adoção institucional.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Norma de funcionamento ou documento normativo equivalente.", "medicao": "Entrega da norma de funcionamento da unidade ou estrutura de assessoramento estratégico, em versão final validada pela contratante.", "tipo_medicao": "", "unidade_medicao": "Norma / Documento normativo", "frequencia": "Única", "criterio_aceite": "Instrumento normativo entregue em versão consolidada, coerente com o modelo de governança e validado pela contratante.", "prazo_execucao": "2 a 3 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE09"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Recomendado quando a solução incluir unidade, escritório ou rotina permanente de assessoramento."}, {"id_produto": "PE11", "produto": "Definição da Estrutura e Perfis da Equipe", "macroetapa": "Governança e Estrutura", "ordem": 11, "descricao": "Produto voltado à definição dos perfis, competências, papéis e composição da equipe que atuará na estrutura de assessoramento estratégico, podendo incluir atração, seleção e alocação dos profissionais necessários.", "objetivo": "Assegurar que a estrutura de apoio à estratégia disponha de equipe adequada ao escopo contratado.", "escopo": "Delimitação de perfis, papéis e composição da equipe, com definição de competências e responsabilidades.", "atividades": [{"id": "PE11-AT01", "texto": "definir perfis profissionais e competências requeridas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE11-AT02", "texto": "estabelecer quantitativos e papéis por função", "selecionada_padrao": true, "personalizada": false}, {"id": "PE11-AT03", "texto": "apoiar processos de atração, seleção ou indicação", "selecionada_padrao": true, "personalizada": false}, {"id": "PE11-AT04", "texto": "consolidar a composição da equipe", "selecionada_padrao": true, "personalizada": false}, {"id": "PE11-AT05", "texto": "formalizar atribuições e responsabilidades dos membros.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório contendo perfis, composição da equipe e atribuições por função.", "medicao": "Entrega de relatório contendo a definição da equipe, com relação nominal e/ou perfis profissionais, atribuições e responsabilidades por função.", "tipo_medicao": "", "unidade_medicao": "Relatório", "frequencia": "Única", "criterio_aceite": "Relatório validado pela contratante, com perfis compatíveis com o escopo, papéis claramente descritos e aderência à estrutura de governança.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE09", "PE10"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode abranger apenas a definição de papéis e perfis ou incluir apoio efetivo ao processo de composição da equipe."}, {"id_produto": "PE12", "produto": "Indicadores de Gestão e Fluxo de Comunicação da Estrutura", "macroetapa": "Governança e Estrutura", "ordem": 12, "descricao": "Produto destinado à definição dos indicadores de gestão da unidade ou escritório de assessoramento, bem como ao desenho do fluxo de comunicação e reporte com as demais áreas envolvidas na execução da estratégia.", "objetivo": "Garantir monitoramento da eficiência da estrutura de assessoramento e clareza no fluxo de comunicação institucional.", "escopo": "Desenho dos indicadores de desempenho da estrutura e da arquitetura de comunicação necessária ao seu funcionamento.", "atividades": [{"id": "PE12-AT01", "texto": "definir indicadores de eficiência e desempenho da estrutura", "selecionada_padrao": true, "personalizada": false}, {"id": "PE12-AT02", "texto": "pactuar fontes de informação e periodicidade de apuração", "selecionada_padrao": true, "personalizada": false}, {"id": "PE12-AT03", "texto": "desenhar fluxo de comunicação e reporte com áreas internas e externas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE12-AT04", "texto": "validar os fluxos com as unidades envolvidas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE12-AT05", "texto": "consolidar os instrumentos em documento técnico.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento técnico com indicadores de gestão e fluxo de comunicação definidos.", "medicao": "Entrega de documento contendo os indicadores de gestão da estrutura e o fluxo de comunicação a ser adotado com as demais áreas envolvidas.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento validado pela contratante, com indicadores mensuráveis e fluxo de comunicação claro, aplicável e operacionalizável.", "prazo_execucao": "2 a 3 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE09", "PE10"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser contratado em conjunto com o modelo de governança quando se desejar um produto único de desenho institucional."}, {"id_produto": "PE13", "produto": "Rotina de Gestão e Monitoramento", "macroetapa": "Monitoramento e Sistemas", "ordem": 13, "descricao": "Produto destinado à definição da periodicidade, dos ritos e dos instrumentos de monitoramento da estratégia, permitindo o acompanhamento sistemático dos objetivos, metas e planos de ação, bem como a correção tempestiva de rumos.", "objetivo": "Instituir uma rotina regular de gestão orientada ao acompanhamento de resultados e à tomada de decisão.", "escopo": "Estruturação da agenda de monitoramento da estratégia, dos ritos de gestão e dos instrumentos a serem utilizados nas reuniões e análises periódicas.", "atividades": [{"id": "PE13-AT01", "texto": "diagnosticar práticas atuais de acompanhamento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE13-AT02", "texto": "realizar benchmarking quando cabível", "selecionada_padrao": true, "personalizada": false}, {"id": "PE13-AT03", "texto": "construir ritos, periodicidade e agenda de monitoramento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE13-AT04", "texto": "definir participantes, insumos e produtos de cada reunião", "selecionada_padrao": true, "personalizada": false}, {"id": "PE13-AT05", "texto": "consolidar a rotina em documento estruturado.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Documento contendo a rotina de gestão e monitoramento da estratégia.", "medicao": "Entrega de documento contendo o conjunto de definições necessárias à concretização da rotina de gestão e monitoramento da estratégia.", "tipo_medicao": "", "unidade_medicao": "Documento", "frequencia": "Única", "criterio_aceite": "Documento validado pela contratante, com ritos, periodicidade, responsabilidades e instrumentos suficientes para a operacionalização do monitoramento.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE05", "PE06"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode servir como produto autônomo ou como etapa preparatória da implementação da UAT/UCT/EGPP."}, {"id_produto": "PE14", "produto": "Rotina de Monitoramento da Estratégia", "macroetapa": "Implementação", "ordem": 14, "descricao": "Produto destinado à elaboração de manual ou roteiro operacional para as reuniões periódicas e demais ritos de gestão associados à implementação e ao monitoramento da estratégia.", "objetivo": "Padronizar a condução dos ritos de gestão e apoiar sua reprodução pelas equipes da contratante.", "escopo": "Consolidação operacional dos ritos, procedimentos, modelos e formatos necessários à execução da rotina de gestão.", "atividades": [{"id": "PE14-AT01", "texto": "detalhar frequência, pauta, participantes e insumos das reuniões", "selecionada_padrao": true, "personalizada": false}, {"id": "PE14-AT02", "texto": "definir modelos de registro e encaminhamento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE14-AT03", "texto": "consolidar procedimentos operacionais dos ritos de gestão", "selecionada_padrao": true, "personalizada": false}, {"id": "PE14-AT04", "texto": "revisar o manual com a contratante", "selecionada_padrao": true, "personalizada": false}, {"id": "PE14-AT05", "texto": "disponibilizar versão final para uso institucional.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Manual de ritos de gestão ou manual da rotina de gestão.", "medicao": "Entrega de manual contendo os ritos de gestão, os procedimentos operacionais e os modelos necessários à condução da rotina de monitoramento.", "tipo_medicao": "", "unidade_medicao": "Manual", "frequencia": "Única", "criterio_aceite": "Manual entregue em versão final, com linguagem clara, procedimentos aplicáveis e validação formal da contratante.", "prazo_execucao": "2 a 3 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE13"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser agregado ao produto PE13 quando a contratante preferir um único documento para rotina e manual."}, {"id_produto": "PE15", "produto": "Alinhamento Interno da Equipe", "macroetapa": "Implementação", "ordem": 15, "descricao": "Produto voltado à realização de jornada de alinhamento inicial com a equipe da unidade ou escritório de assessoramento, com o objetivo de uniformizar conceitos, práticas, papéis e formas de atuação antes do início da operação assistida.", "objetivo": "Preparar a equipe responsável pela execução da rotina de gestão para atuar de forma integrada e orientada a resultados.", "escopo": "Ação inicial de alinhamento metodológico e operacional da equipe de execução da estratégia.", "atividades": [{"id": "PE15-AT01", "texto": "realizar jornada de alinhamento com os envolvidos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE15-AT02", "texto": "apresentar metodologia, papéis, fluxos e instrumentos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE15-AT03", "texto": "orientar a equipe sobre planejamento, execução, monitoramento e reporte", "selecionada_padrao": true, "personalizada": false}, {"id": "PE15-AT04", "texto": "nivelar entendimentos sobre a rotina de melhoria contínua", "selecionada_padrao": true, "personalizada": false}, {"id": "PE15-AT05", "texto": "registrar os encaminhamentos e compromissos pactuados.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório ou memória técnica da jornada de alinhamento, com registro dos conteúdos e encaminhamentos.", "medicao": "Realização da jornada de alinhamento interno e entrega de registro técnico contendo participantes, conteúdos trabalhados e encaminhamentos pactuados.", "tipo_medicao": "", "unidade_medicao": "Relatório / Registro técnico", "frequencia": "Única", "criterio_aceite": "Jornada realizada com a participação dos atores definidos pela contratante e registro técnico entregue no formato pactuado.", "prazo_execucao": "1 a 2 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE11", "PE12", "PE14"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Especialmente útil quando houver constituição de nova equipe ou mudança relevante na rotina de gestão."}, {"id_produto": "PE16", "produto": "Operação Assistida da Estratégia", "macroetapa": "Implementação", "ordem": 16, "descricao": "Produto de caráter continuado destinado à implantação e à operação assistida de unidade ou escritório responsável por coordenar, monitorar e apoiar a execução dos projetos, processos, programas e iniciativas estratégicas da contratante.", "objetivo": "Colocar em funcionamento a estrutura de assessoramento estratégico e assegurar sua operação assistida durante o período contratual.", "escopo": "Execução continuada da rotina da estrutura de assessoramento, com apoio direto à contratante na implementação e no acompanhamento da estratégia.", "atividades": [{"id": "PE16-AT01", "texto": "implantar a rotina operacional da unidade/escritório", "selecionada_padrao": true, "personalizada": false}, {"id": "PE16-AT02", "texto": "acompanhar projetos, processos, programas e iniciativas priorizadas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE16-AT03", "texto": "apoiar a execução dos planos de ação", "selecionada_padrao": true, "personalizada": false}, {"id": "PE16-AT04", "texto": "produzir relatórios periódicos de atividades e resultados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE16-AT05", "texto": "ajustar fluxos e procedimentos conforme a evolução da execução.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatórios periódicos de implantação e operação da estrutura de assessoramento estratégico.", "medicao": "Entrega periódica de relatório de atividades abordando as ações desenvolvidas no período, em caráter continuado, para fins de acompanhamento da implantação e operação da estrutura de assessoramento estratégico.", "tipo_medicao": "", "unidade_medicao": "Relatório periódico", "frequencia": "Mensal", "criterio_aceite": "Relatório entregue no prazo, contendo evidências das atividades executadas, evolução dos acompanhamentos e validação do fiscal/gestor do contrato.", "prazo_execucao": "6 a 24 meses", "tipo_execucao": "Contínuo", "dependencias": ["PE09", "PE15"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Produto guarda-chuva que pode agregar diversos subcomponentes. Indicado quando o TR incluir operação assistida de UAT, UCT ou escritório de projetos e processos."}, {"id_produto": "PE17", "produto": "Suporte a Projetos Estratégicos Priorizados", "macroetapa": "Implementação", "ordem": 17, "descricao": "Produto destinado ao apoio técnico direto à implementação de projetos estratégicos priorizados pela contratante, funcionando como demonstração prática da metodologia de gestão e como mecanismo de transferência de capacidade para a equipe interna.", "objetivo": "Apoiar a execução de projetos prioritários e consolidar a aprendizagem institucional sobre a metodologia adotada.", "escopo": "Suporte dirigido a projetos selecionados pela contratante, com aplicação prática da rotina de assessoramento estratégico.", "atividades": [{"id": "PE17-AT01", "texto": "selecionar os projetos prioritários a serem acompanhados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE17-AT02", "texto": "apoiar planejamento, execução, monitoramento e reporte desses projetos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE17-AT03", "texto": "orientar responsáveis e equipes envolvidas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE17-AT04", "texto": "identificar riscos, gargalos e ajustes necessários", "selecionada_padrao": true, "personalizada": false}, {"id": "PE17-AT05", "texto": "registrar resultados e aprendizados para replicação futura.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatórios de suporte aos projetos estratégicos priorizados, com registro das ações desenvolvidas e dos resultados obtidos.", "medicao": "Entrega de relatório contendo as atividades de suporte realizadas nos projetos estratégicos priorizados pela contratante e os resultados obtidos no período.", "tipo_medicao": "", "unidade_medicao": "Relatório", "frequencia": "Mensal ou por ciclo de acompanhamento", "criterio_aceite": "Relatório com identificação dos projetos apoiados, atividades executadas, avanços observados e validação pela contratante.", "prazo_execucao": "4 a 12 meses", "tipo_execucao": "Contínuo", "dependencias": ["PE16"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Recomendado quando se pretende usar projetos-piloto ou projetos prioritários como referência para consolidação da metodologia."}, {"id_produto": "PE18", "produto": "Formação em Gestão de Projetos e Processos", "macroetapa": "Formação", "ordem": 18, "descricao": "Produto destinado à elaboração e execução de ações formativas voltadas ao aperfeiçoamento das competências necessárias à implementação da estratégia, com foco em gestão de projetos, processos, monitoramento e uso dos instrumentos construídos no âmbito do contrato.", "objetivo": "Desenvolver capacidades internas para garantir a sustentabilidade da metodologia após o encerramento da consultoria.", "escopo": "Planejamento pedagógico, execução e registro de jornada de capacitação voltada às equipes da contratante.", "atividades": [{"id": "PE18-AT01", "texto": "levantar necessidades formativas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE18-AT02", "texto": "definir temas, público-alvo, carga horária e formato", "selecionada_padrao": true, "personalizada": false}, {"id": "PE18-AT03", "texto": "elaborar materiais e conteúdos formativos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE18-AT04", "texto": "executar capacitações presenciais, virtuais ou híbridas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE18-AT05", "texto": "registrar presença, conteúdos e resultados das ações formativas.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Plano e/ou relatório de formação, com registro das capacitações realizadas e materiais produzidos.", "medicao": "Entrega de relatório de formação ou comprovação da realização das ações formativas previstas, com registro das atividades, participantes, carga horária e materiais disponibilizados.", "tipo_medicao": "", "unidade_medicao": "Formação / Relatório de formação", "frequencia": "Única ou periódica", "criterio_aceite": "Ações formativas executadas conforme escopo pactuado, com comprovação da carga horária, participantes e disponibilização dos materiais previstos.", "prazo_execucao": "1 a 4 meses", "tipo_execucao": "Pontual", "dependencias": ["PE14", "PE16"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode assumir formato de jornada única, ciclos formativos ou relatórios mensais, a depender do desenho contratual."}, {"id_produto": "PE19", "produto": "Apoio Técnico para Painel de Resultados", "macroetapa": "Monitoramento e Sistemas", "ordem": 19, "descricao": "Produto destinado ao levantamento de requisitos, adaptação ou aprimoramento de sistema ou painel de gestão de resultados, com o objetivo de viabilizar o acompanhamento estruturado dos indicadores, metas e planos de ação da estratégia.", "objetivo": "Disponibilizar base técnica para o monitoramento sistemático da estratégia por meio de ferramenta de resultados.", "escopo": "Desenho funcional e apoio técnico à evolução de sistema ou painel de resultados associado à implementação da estratégia.", "atividades": [{"id": "PE19-AT01", "texto": "diagnosticar a solução tecnológica existente", "selecionada_padrao": true, "personalizada": false}, {"id": "PE19-AT02", "texto": "levantar requisitos funcionais e informacionais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE19-AT03", "texto": "especificar adaptações ou aprimoramentos necessários", "selecionada_padrao": true, "personalizada": false}, {"id": "PE19-AT04", "texto": "apoiar testes, validação e transição da solução", "selecionada_padrao": true, "personalizada": false}, {"id": "PE19-AT05", "texto": "consolidar relatório técnico com requisitos e encaminhamentos.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório técnico contendo requisitos, adaptações propostas e orientações para aprimoramento do painel/sistema de resultados.", "medicao": "Entrega de relatório de apoio técnico contendo os requisitos levantados e as definições necessárias ao aprimoramento ou à adaptação do painel/sistema de resultados da contratante.", "tipo_medicao": "", "unidade_medicao": "Relatório de apoio", "frequencia": "Única", "criterio_aceite": "Relatório validado pela contratante, com requisitos suficientes para orientar a adaptação da ferramenta e aderência aos indicadores e processos definidos.", "prazo_execucao": "2 a 4 semanas", "tipo_execucao": "Pontual", "dependencias": ["PE05", "PE06"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Indicado quando a contratante dispõe de sistema preexistente ou deseja estruturar acompanhamento digital dos resultados."}, {"id_produto": "PE20", "produto": "Acompanhamento e Resultados", "macroetapa": "Monitoramento e Sistemas", "ordem": 20, "descricao": "Produto de caráter continuado destinado ao acompanhamento periódico dos resultados da estratégia, com análise dos dados extraídos do sistema ou dos instrumentos de monitoramento, identificação de desvios e proposição de correções de rota.", "objetivo": "Acompanhar a execução e o desempenho da estratégia ao longo do contrato, permitindo intervenções tempestivas.", "escopo": "Monitoramento periódico dos indicadores, metas e planos de ação, com geração de relatórios gerenciais e recomendações de ajuste.", "atividades": [{"id": "PE20-AT01", "texto": "extrair e analisar dados dos instrumentos de monitoramento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE20-AT02", "texto": "verificar avanço das ações e cumprimento das metas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE20-AT03", "texto": "registrar reprogramações, intervenções e riscos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE20-AT04", "texto": "consolidar relatórios gerenciais periódicos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE20-AT05", "texto": "subsidiar reuniões de monitoramento e decisões corretivas.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatórios periódicos de acompanhamento e resultados, com análise de desempenho e recomendações de ajuste.", "medicao": "Entrega periódica de relatório de acompanhamento e resultados, contendo a evolução das ações, análise de desempenho e propostas de correção de rota.", "tipo_medicao": "", "unidade_medicao": "Relatório periódico", "frequencia": "Mensal ou bimestral", "criterio_aceite": "Relatório entregue no prazo, com dados atualizados, análise inteligível, recomendações de ajuste e validação pelo fiscal/gestor do contrato.", "prazo_execucao": "6 a 24 meses", "tipo_execucao": "Contínuo", "dependencias": ["PE19"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode ser associado à operação da UAT/UCT/EGPP ou contratado de forma autônoma como rotina gerencial de acompanhamento."}, {"id_produto": "PE21", "produto": "Avaliação da Rotina da Estrutura", "macroetapa": "Monitoramento e Sistemas", "ordem": 21, "descricao": "Produto voltado à avaliação periódica da rotina, do monitoramento e dos resultados da unidade ou escritório de assessoramento estratégico, com identificação de oportunidades de aperfeiçoamento.", "objetivo": "Verificar a efetividade da rotina implantada e produzir insumos para sua melhoria.", "escopo": "Avaliação periódica da operação da estrutura de assessoramento, de seus ritos e de seus resultados.", "atividades": [{"id": "PE21-AT01", "texto": "realizar ciclos avaliativos da rotina implantada", "selecionada_padrao": true, "personalizada": false}, {"id": "PE21-AT02", "texto": "analisar resultados e evidências da operação assistida", "selecionada_padrao": true, "personalizada": false}, {"id": "PE21-AT03", "texto": "identificar pontos fortes, gargalos e riscos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE21-AT04", "texto": "discutir achados com a contratante", "selecionada_padrao": true, "personalizada": false}, {"id": "PE21-AT05", "texto": "registrar recomendações de aperfeiçoamento.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório de avaliação da rotina da estrutura de assessoramento estratégico.", "medicao": "Entrega de relatório de avaliação da rotina da estrutura de assessoramento, contendo análise dos resultados observados e recomendações de aperfeiçoamento.", "tipo_medicao": "", "unidade_medicao": "Relatório", "frequencia": "Semestral ou por ciclo", "criterio_aceite": "Relatório contendo análise crítica da rotina implantada, achados avaliativos e recomendações objetivas, validado pela contratante.", "prazo_execucao": "Ao longo da operação", "tipo_execucao": "Contínuo", "dependencias": ["PE16", "PE20"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Útil em contratos mais longos ou quando a contratante deseja aferir formalmente a maturidade da rotina implantada."}, {"id_produto": "PE22", "produto": "Lições Aprendidas, Boas Práticas e Implementação de Melhorias", "macroetapa": "Melhoria Contínua", "ordem": 22, "descricao": "Produto destinado à sistematização das lições aprendidas, das boas práticas identificadas ao longo da execução e das melhorias de curto e longo prazo a serem incorporadas à rotina institucional após a consultoria.", "objetivo": "Consolidar conhecimento institucional, disseminar boas práticas e orientar o aperfeiçoamento contínuo da estratégia e da estrutura de assessoramento.", "escopo": "Coleta, análise e sistematização de aprendizados, práticas exitosas e melhorias decorrentes da execução contratual.", "atividades": [{"id": "PE22-AT01", "texto": "coletar lições aprendidas junto às equipes envolvidas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE22-AT02", "texto": "identificar e documentar boas práticas replicáveis", "selecionada_padrao": true, "personalizada": false}, {"id": "PE22-AT03", "texto": "consolidar oportunidades de melhoria da rotina e da governança", "selecionada_padrao": true, "personalizada": false}, {"id": "PE22-AT04", "texto": "estruturar plano ou recomendações de implementação de melhorias", "selecionada_padrao": true, "personalizada": false}, {"id": "PE22-AT05", "texto": "elaborar relatório final de consolidação.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório final de lições aprendidas, boas práticas e recomendações de melhorias.", "medicao": "Entrega de relatório final contendo a sistematização das lições aprendidas, das boas práticas identificadas e das melhorias recomendadas para continuidade da estratégia.", "tipo_medicao": "", "unidade_medicao": "Relatório final", "frequencia": "Única", "criterio_aceite": "Relatório final entregue com sistematização consistente dos aprendizados, recomendações aplicáveis e validação pela contratante.", "prazo_execucao": "Etapa final do contrato", "tipo_execucao": "Pontual", "dependencias": ["PE16", "PE21"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode abarcar somente lições aprendidas ou também reuniões, banco de boas práticas e plano de implementação de melhorias."}, {"id_produto": "PE23", "produto": "Implantação da Governança Estratégica", "macroetapa": "Implementação", "ordem": 23, "descricao": "Implantação das instâncias, ritos e fluxos de governança definidos, assegurando o funcionamento estruturado da gestão estratégica.", "objetivo": "Assegurar a operacionalização da governança estratégica.", "escopo": "Instalação de comitês, definição de agendas, fluxos decisórios e rotinas de acompanhamento.", "atividades": [{"id": "PE23-AT01", "texto": "constituição de comitês", "selecionada_padrao": true, "personalizada": false}, {"id": "PE23-AT02", "texto": "definição de calendário", "selecionada_padrao": true, "personalizada": false}, {"id": "PE23-AT03", "texto": "realização de reuniões iniciais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE23-AT04", "texto": "acompanhamento dos primeiros ciclos.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Governança implantada e em funcionamento.", "medicao": "Produto considerado entregue mediante comprovação do funcionamento das instâncias de governança.", "tipo_medicao": "Por Etapa", "unidade_medicao": "Unidade", "frequencia": "Mensal", "criterio_aceite": "Instâncias formalizadas e reuniões realizadas conforme planejamento.", "prazo_execucao": "Até 3 meses", "tipo_execucao": "Contínuo", "dependencias": ["PE09"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Essencial para projetos com foco em implementação."}, {"id_produto": "PE24", "produto": "Execução da Estratégia de Engajamento e Comunicação", "macroetapa": "Implementação", "ordem": 24, "descricao": "Execução das ações previstas no plano de comunicação e engajamento, promovendo alinhamento e mobilização dos públicos estratégicos.", "objetivo": "Garantir o engajamento dos stakeholders na estratégia.", "escopo": "Implementação de campanhas, ações de comunicação e mobilização institucional.", "atividades": [{"id": "PE24-AT01", "texto": "execução de campanhas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE24-AT02", "texto": "produção de materiais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE24-AT03", "texto": "eventos de engajamento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE24-AT04", "texto": "comunicação contínua.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Ações de comunicação executadas conforme plano.", "medicao": "Produto considerado entregue mediante comprovação das ações realizadas.", "tipo_medicao": "Contínua", "unidade_medicao": "Ação", "frequencia": "Mensal", "criterio_aceite": "Ações realizadas conforme plano aprovado.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE07"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode variar conforme porte do projeto."}, {"id_produto": "PE25", "produto": "Gestão da Mudança Organizacional", "macroetapa": "Implementação", "ordem": 25, "descricao": "Planejamento e execução de ações estruturadas para apoiar a incorporação das mudanças organizacionais decorrentes da estratégia.", "objetivo": "Reduzir resistências e promover adesão às mudanças.", "escopo": "Estratégias de sensibilização, capacitação e acompanhamento da mudança.", "atividades": [{"id": "PE25-AT01", "texto": "mapeamento de impactos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE25-AT02", "texto": "plano de mudança", "selecionada_padrao": true, "personalizada": false}, {"id": "PE25-AT03", "texto": "ações de sensibilização", "selecionada_padrao": true, "personalizada": false}, {"id": "PE25-AT04", "texto": "acompanhamento.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Plano executado e evidências de adesão.", "medicao": "Produto considerado entregue mediante execução das ações previstas.", "tipo_medicao": "Contínua", "unidade_medicao": "Ação", "frequencia": "Mensal", "criterio_aceite": "Evidências de execução e adesão das equipes.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE01", "PE07"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Crítico em projetos com transformação organizacional."}, {"id_produto": "PE26", "produto": "Desenho de Ferramentas de Gestão e Monitoramento", "macroetapa": "Planejamento", "ordem": 26, "descricao": "Desenvolvimento do modelo conceitual e técnico das ferramentas de gestão e monitoramento da estratégia.", "objetivo": "Estruturar instrumentos para acompanhamento da estratégia.", "escopo": "Definição de indicadores, dashboards e fluxos de informação.", "atividades": [{"id": "PE26-AT01", "texto": "definição de requisitos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE26-AT02", "texto": "modelagem de dashboards", "selecionada_padrao": true, "personalizada": false}, {"id": "PE26-AT03", "texto": "especificação técnica.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Modelos e especificações das ferramentas.", "medicao": "Produto considerado entregue mediante validação do modelo proposto.", "tipo_medicao": "Única", "unidade_medicao": "Produto", "frequencia": "Única", "criterio_aceite": "Modelo validado pela contratante.", "prazo_execucao": "Até 2 meses", "tipo_execucao": "Pontual", "dependencias": ["PE03", "PE04"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Base para implantação tecnológica."}, {"id_produto": "PE27", "produto": "Implantação de Ferramentas de Gestão e Monitoramento", "macroetapa": "Implementação", "ordem": 27, "descricao": "Implantação das ferramentas de gestão e monitoramento, incluindo desenvolvimento, configuração e disponibilização para uso.", "objetivo": "Disponibilizar instrumentos operacionais de gestão.", "escopo": "Desenvolvimento/configuração de sistemas, testes e entrada em operação.", "atividades": [{"id": "PE27-AT01", "texto": "desenvolvimento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE27-AT02", "texto": "testes", "selecionada_padrao": true, "personalizada": false}, {"id": "PE27-AT03", "texto": "ajustes", "selecionada_padrao": true, "personalizada": false}, {"id": "PE27-AT04", "texto": "treinamento de uso.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Ferramentas implantadas e operacionais.", "medicao": "Produto considerado entregue mediante funcionamento das ferramentas.", "tipo_medicao": "Por Etapa", "unidade_medicao": "Sistema", "frequencia": "Mensal", "criterio_aceite": "Ferramentas em uso e validadas.", "prazo_execucao": "Até 4 meses", "tipo_execucao": "Pontual", "dependencias": ["PE26"], "obrigatorio": false, "flexivel": true, "observacoes_uso": "Pode envolver soluções tecnológicas distintas."}, {"id_produto": "PE28", "produto": "Apoio à Implementação da Estratégia", "macroetapa": "Implementação", "ordem": 28, "descricao": "Suporte técnico contínuo à execução da estratégia, acompanhando projetos e apoiando gestores na implementação.", "objetivo": "Garantir a execução efetiva da estratégia.", "escopo": "Acompanhamento de projetos, apoio técnico e resolução de entraves.", "atividades": [{"id": "PE28-AT01", "texto": "reuniões de acompanhamento", "selecionada_padrao": true, "personalizada": false}, {"id": "PE28-AT02", "texto": "suporte técnico", "selecionada_padrao": true, "personalizada": false}, {"id": "PE28-AT03", "texto": "articulação institucional.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatórios de acompanhamento e registros de apoio.", "medicao": "Produto considerado entregue mediante execução contínua do apoio.", "tipo_medicao": "Contínua", "unidade_medicao": "Mês", "frequencia": "Mensal", "criterio_aceite": "Registros de apoio e evolução dos projetos.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE05"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Produto típico de consultorias com PMO."}, {"id_produto": "PE29", "produto": "Sistema de Monitoramento da Estratégia", "macroetapa": "Monitoramento", "ordem": 29, "descricao": "Estruturação e operacionalização do sistema de monitoramento da estratégia, incluindo indicadores e rotinas de acompanhamento.", "objetivo": "Acompanhar o desempenho da estratégia.", "escopo": "Definição e operacionalização de indicadores e rotinas de monitoramento.", "atividades": [{"id": "PE29-AT01", "texto": "definição de indicadores", "selecionada_padrao": true, "personalizada": false}, {"id": "PE29-AT02", "texto": "coleta de dados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE29-AT03", "texto": "análise periódica.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Sistema de monitoramento em funcionamento.", "medicao": "Produto considerado entregue mediante operação do sistema.", "tipo_medicao": "Contínua", "unidade_medicao": "Indicador", "frequencia": "Mensal", "criterio_aceite": "Indicadores atualizados e analisados.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE04", "PE26"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Base para gestão por resultados."}, {"id_produto": "PE30", "produto": "Relatórios Executivos de Acompanhamento", "macroetapa": "Monitoramento", "ordem": 30, "descricao": "Elaboração de relatórios periódicos para acompanhamento da execução da estratégia e apoio à tomada de decisão.", "objetivo": "Subsidiar a tomada de decisão da alta gestão.", "escopo": "Produção de relatórios sintéticos e analíticos.", "atividades": [{"id": "PE30-AT01", "texto": "coleta de dados", "selecionada_padrao": true, "personalizada": false}, {"id": "PE30-AT02", "texto": "análise", "selecionada_padrao": true, "personalizada": false}, {"id": "PE30-AT03", "texto": "elaboração de relatórios.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatórios executivos entregues.", "medicao": "Produto considerado entregue mediante entrega dos relatórios.", "tipo_medicao": "Por Evento", "unidade_medicao": "Relatório", "frequencia": "Mensal", "criterio_aceite": "Relatórios entregues no prazo e validados.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE29"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Pode variar em periodicidade."}, {"id_produto": "PE31", "produto": "Avaliação de Resultados da Estratégia", "macroetapa": "Avaliação", "ordem": 31, "descricao": "Avaliação estruturada dos resultados alcançados pela estratégia, considerando metas, indicadores e impactos.", "objetivo": "Verificar a efetividade da estratégia.", "escopo": "Análise de desempenho e resultados.", "atividades": [{"id": "PE31-AT01", "texto": "análise de indicadores", "selecionada_padrao": true, "personalizada": false}, {"id": "PE31-AT02", "texto": "comparação com metas", "selecionada_padrao": true, "personalizada": false}, {"id": "PE31-AT03", "texto": "consolidação de resultados.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Relatório de avaliação de resultados.", "medicao": "Produto considerado entregue mediante validação do relatório.", "tipo_medicao": "Única", "unidade_medicao": "Relatório", "frequencia": "Única", "criterio_aceite": "Relatório validado pela contratante.", "prazo_execucao": "Final do projeto", "tipo_execucao": "Pontual", "dependencias": ["PE29"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Etapa de fechamento estratégico."}, {"id_produto": "PE32", "produto": "Transferência de Conhecimento e Capacitação Técnica", "macroetapa": "Encerramento", "ordem": 32, "descricao": "Execução de ações de capacitação e transferência de conhecimento para assegurar a autonomia da equipe da contratante.", "objetivo": "Garantir sustentabilidade da estratégia.", "escopo": "Capacitações, materiais e acompanhamento técnico.", "atividades": [{"id": "PE32-AT01", "texto": "realização de treinamentos", "selecionada_padrao": true, "personalizada": false}, {"id": "PE32-AT02", "texto": "produção de materiais", "selecionada_padrao": true, "personalizada": false}, {"id": "PE32-AT03", "texto": "acompanhamento.", "selecionada_padrao": true, "personalizada": false}], "entregavel": "Capacitações realizadas e materiais entregues.", "medicao": "Produto considerado entregue mediante realização das capacitações.", "tipo_medicao": "Por Evento", "unidade_medicao": "Turma", "frequencia": "Mensal", "criterio_aceite": "Participação e avaliação das capacitações.", "prazo_execucao": "Contínuo", "tipo_execucao": "Contínuo", "dependencias": ["PE28"], "obrigatorio": true, "flexivel": false, "observacoes_uso": "Essencial para sustentabilidade do projeto."}]};
+    let workingData = null;
+    let openMacros = new Set();
+
+    const els = {
+      btnResetEmbedded: document.getElementById('btnResetEmbedded'),
+      btnResetLocal: document.getElementById('btnResetLocal'),
+      jsonFileInput: document.getElementById('jsonFileInput'),
+      btnExportBase: document.getElementById('btnExportBase'),
+      baseStatus: document.getElementById('baseStatus'),
+      macroFilter: document.getElementById('macroFilter'),
+      requiredFilter: document.getElementById('requiredFilter'),
+      keywordFilter: document.getElementById('keywordFilter'),
+      macroList: document.getElementById('macroList'),
+      preview: document.getElementById('preview'),
+      btnRegenerate: document.getElementById('btnRegenerate'),
+      btnCopyText: document.getElementById('btnCopyText'),
+      countStatus: document.getElementById('countStatus'),
+      globalNotice: document.getElementById('globalNotice'),
+      btnExpandAll: document.getElementById('btnExpandAll'),
+      btnCollapseAll: document.getElementById('btnCollapseAll'),
+      btnSelectAllVisible: document.getElementById('btnSelectAllVisible'),
+      btnClearNonRequired: document.getElementById('btnClearNonRequired'),
+      finalIntro: document.getElementById('finalIntro'),
+      appContainer: document.getElementById('appContainer'),
+      splitter: document.getElementById('splitter')
+    };
+
+    function normalizeBase(raw) {
+      const copy = structuredClone(raw);
+      copy.produtos = (copy.produtos || []).map(p => ({
+        ...p,
+        selected: Boolean(p.obrigatorio),
+        open: false,
+        atividades: (p.atividades || []).map(a => ({
+          ...a,
+          selected: a.selecionada_padrao !== false
+        }))
+      })).sort((a,b) => Number(a.ordem) - Number(b.ordem));
+      return copy;
+    }
+
+    function saveBase() {
+      if (workingData) localStorage.setItem(STORAGE_KEY, JSON.stringify(workingData));
+    }
+
+    function loadLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    function clearLocal() {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function showNotice(msg, error=false) {
+      els.globalNotice.style.display = 'block';
+      els.globalNotice.style.background = error ? '#fef2f2' : '#fffbeb';
+      els.globalNotice.style.borderColor = error ? '#fecaca' : '#fcd34d';
+      els.globalNotice.style.color = error ? '#991b1b' : '#92400e';
+      els.globalNotice.textContent = msg;
+      setTimeout(() => els.globalNotice.style.display = 'none', 4500);
+    }
+
+    function loadEmbeddedBase() {
+      workingData = normalizeBase(EMBEDDED_BASE);
+      clearLocal();
+      saveBase();
+      afterLoad('base padrão embutida');
+    }
+
+    function afterLoad(sourceName) {
+      els.baseStatus.textContent = `Base carregada: ${sourceName} | ${workingData.produtos.length} produtos`;
+      populateMacroFilter();
+      const macros = [...new Set(workingData.produtos.map(p => p.macroetapa).filter(Boolean))];
+      openMacros = new Set(macros);
+      renderProducts();
+      regeneratePreview();
+    }
+
+    function populateMacroFilter() {
+      const values = [...new Set((workingData?.produtos || []).map(p => p.macroetapa).filter(Boolean))];
+      els.macroFilter.innerHTML = '<option value="">Todas as macroetapas</option>';
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        els.macroFilter.appendChild(opt);
+      });
+    }
+
+    function getFilteredProducts() {
+      if(!workingData) return [];
+      const keyword = els.keywordFilter.value.trim().toLowerCase();
+      const macro = els.macroFilter.value;
+      const req = els.requiredFilter.value;
+
+      return workingData.produtos.filter(p => {
+        if (macro && p.macroetapa !== macro) return false;
+        if (req === 'sim' && !p.obrigatorio) return false;
+        if (req === 'nao' && p.obrigatorio) return false;
+        if (!keyword) return true;
+
+        const haystack = [
+          p.id_produto, p.produto, p.macroetapa, p.descricao, p.objetivo, p.escopo,
+          p.entregavel, p.medicao, p.criterio_aceite, p.observacoes_uso,
+          ...(p.atividades || []).map(a => a.texto)
+        ].join(' ').toLowerCase();
+
+        return haystack.includes(keyword);
+      });
+    }
+
+    function renderProducts() {
+      const products = getFilteredProducts();
+      els.macroList.innerHTML = '';
+
+      const groups = {};
+      products.forEach(p => {
+        if(!groups[p.macroetapa]) groups[p.macroetapa] = [];
+        groups[p.macroetapa].push(p);
+      });
+
+      Object.entries(groups).forEach(([macro, list]) => {
+        const isOpen = openMacros.has(macro);
+        const group = document.createElement('div');
+        group.className = 'macro-group' + (isOpen ? '' : ' closed');
+
+        const header = document.createElement('div');
+        header.className = 'macro-header';
+        header.innerHTML = `
+          <div>
+            <div class="macro-title">${escapeHtml(macro)}</div>
+            <div class="macro-meta">${list.length} produto(s)</div>
+          </div>
+          <button class="ghost" type="button">${isOpen ? 'Recolher' : 'Expandir'}</button>
+        `;
+        header.addEventListener('click', () => {
+          if (openMacros.has(macro)) openMacros.delete(macro);
+          else openMacros.add(macro);
+          renderProducts();
+        });
+
+        const content = document.createElement('div');
+        content.className = 'macro-content';
+        list.forEach(product => content.appendChild(createProductCard(product)));
+
+        group.appendChild(header);
+        group.appendChild(content);
+        els.macroList.appendChild(group);
+      });
+
+      updateCountStatus();
+    }
+
+    function createProductCard(product) {
+      const card = document.createElement('div');
+      card.className = 'product-card' + (product.obrigatorio ? ' required' : '') + (product.open ? ' open' : '');
+
+      const summary = document.createElement('div');
+      summary.className = 'product-summary';
+      summary.innerHTML = `
+        <div><input type="checkbox" ${product.selected ? 'checked' : ''}></div>
+        <div>
+          <div class="product-title">
+            ${escapeHtml(product.id_produto)} — ${escapeHtml(product.produto)}
+            <span class="badge macro">${escapeHtml(product.macroetapa || '')}</span>
+            ${product.obrigatorio ? '<span class="badge required">Obrigatório</span>' : ''}
+          </div>
+          <div class="product-meta">Ordem ${escapeHtml(String(product.ordem))}</div>
+        </div>
+        <div><button class="ghost" type="button">${product.open ? 'Recolher' : 'Expandir'}</button></div>
+      `;
+
+      const checkbox = summary.querySelector('input[type="checkbox"]');
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (product.selected && product.obrigatorio) {
+          const ok = confirm(`O produto ${product.id_produto} é marcado como obrigatório. Deseja mesmo removê-lo desta montagem?`);
+          if (!ok) {
+            checkbox.checked = true;
+            return;
+          }
+        }
+        product.selected = checkbox.checked;
+        saveBase();
+        regeneratePreview();
+        updateCountStatus();
+      });
+
+      summary.addEventListener('click', (e) => {
+        if (e.target.tagName.toLowerCase() === 'input') return;
+        product.open = !product.open;
+        renderProducts();
+      });
+
+      const details = document.createElement('div');
+      details.className = 'product-details';
+      details.innerHTML = `
+        ${renderField(product, 'descricao', 'Descrição', 3)}
+        ${renderField(product, 'objetivo', 'Objetivo', 2)}
+        ${renderField(product, 'escopo', 'Escopo', 3)}
+        <div class="field">
+          <label>Atividades</label>
+          <div id="activities-${product.id_produto}" class="activity-list"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <button type="button" data-add-activity="${product.id_produto}">Adicionar atividade personalizada</button>
+            <button type="button" class="secondary" data-save-product="${product.id_produto}">Salvar alterações deste produto</button>
+          </div>
+          <div id="deps-${product.id_produto}" class="dep-box"></div>
+        </div>
+        ${renderField(product, 'entregavel', 'Entregável', 2)}
+        ${renderField(product, 'medicao', 'Medição', 2)}
+        ${renderField(product, 'criterio_aceite', 'Critério de Aceite', 2)}
+        ${renderField(product, 'prazo_execucao', 'Prazo de Execução', 1)}
+        <div class="field">
+          <label>Dependências</label>
+          <div class="small">${(product.dependencias && product.dependencias.length) ? escapeHtml(product.dependencias.join(', ')) : 'Sem dependências registradas.'}</div>
+        </div>
+      `;
+
+      card.appendChild(summary);
+      card.appendChild(details);
+
+      if (product.open) {
+        queueMicrotask(() => {
+          renderActivities(product);
+          bindProductEvents(product);
+          renderDependencies(product);
+        });
+      }
+
+      return card;
+    }
+
+    function renderField(product, key, label, rows=2) {
+      return `
+        <div class="field">
+          <label>${label}</label>
+          <textarea rows="${rows}" data-product-id="${product.id_produto}" data-field="${key}">${escapeHtml(product[key] || '')}</textarea>
+        </div>
+      `;
+    }
+
+    function renderActivities(product) {
+      const el = document.getElementById(`activities-${product.id_produto}`);
+      if (!el) return;
+      el.innerHTML = '';
+      product.atividades.forEach(act => {
+        const item = document.createElement('div');
+        item.className = 'activity-item';
+        item.innerHTML = `
+          <div class="activity-row">
+            <input type="checkbox" ${act.selected ? 'checked' : ''}>
+            <textarea rows="2" data-product-id="${product.id_produto}" data-activity-id="${act.id}">${escapeHtml(act.texto || '')}</textarea>
+          </div>
+          <div class="small" style="margin-top:6px;">${act.personalizada ? 'Atividade personalizada' : 'Atividade padrão'}</div>
+        `;
+        const cb = item.querySelector('input[type="checkbox"]');
+        cb.addEventListener('change', () => {
+          act.selected = cb.checked;
+          saveBase();
+          regeneratePreview();
+        });
+        el.appendChild(item);
+      });
+    }
+
+    function bindProductEvents(product) {
+      document.querySelectorAll(`textarea[data-product-id="${product.id_produto}"][data-field]`).forEach(t => {
+        t.addEventListener('input', () => { product[t.dataset.field] = t.value; });
+      });
+
+      document.querySelectorAll(`#activities-${product.id_produto} textarea[data-activity-id]`).forEach(t => {
+        t.addEventListener('input', () => {
+          const act = product.atividades.find(a => a.id === t.dataset.activityId);
+          if (act) act.texto = t.value;
+        });
+      });
+
+      const addBtn = document.querySelector(`[data-add-activity="${product.id_produto}"]`);
+      addBtn?.addEventListener('click', () => {
+        const text = prompt(`Nova atividade para ${product.id_produto}:`);
+        if (!text || !text.trim()) return;
+        const nextNum = product.atividades.length + 1;
+        product.atividades.push({
+          id: `${product.id_produto}-AT${String(nextNum).padStart(2, '0')}`,
+          texto: text.trim(),
+          selecionada_padrao: true,
+          personalizada: true,
+          selected: true
+        });
+        saveBase();
+        renderProducts();
+        regeneratePreview();
+      });
+
+      const saveBtn = document.querySelector(`[data-save-product="${product.id_produto}"]`);
+      saveBtn?.addEventListener('click', () => {
+        saveBase();
+        regeneratePreview();
+        showNotice(`Alterações do produto ${product.id_produto} salvas na base local.`);
+      });
+    }
+
+    function renderDependencies(product) {
+      const box = document.getElementById(`deps-${product.id_produto}`);
+      if (!box) return;
+      const missing = (product.dependencias || [])
+        .map(id => workingData.produtos.find(p => p.id_produto === id))
+        .filter(p => p && !p.selected);
+
+      if (!product.selected || missing.length === 0) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="small" style="margin-bottom:8px;">
+          Este produto possui dependências não selecionadas:
+          <strong>${missing.map(p => `${p.id_produto} — ${p.produto}`).join(' | ')}</strong>
+        </div>
+        <button type="button" class="secondary">Incluir dependências</button>
+      `;
+      box.querySelector('button').addEventListener('click', () => {
+        missing.forEach(dep => dep.selected = true);
+        saveBase();
+        regeneratePreview();
+        renderProducts();
+      });
+    }
+
+    function regeneratePreview() {
+      if(!workingData) {
+        els.preview.innerHTML = '<p class="small">Carregue uma base para visualizar a prévia.</p>';
+        return;
+      }
+
+      const selected = workingData.produtos.filter(p => p.selected).sort((a,b) => Number(a.ordem)-Number(b.ordem));
+      if(selected.length === 0) {
+        els.preview.innerHTML = '<p class="small">Nenhum produto selecionado.</p>';
+        updateCountStatus();
+        return;
+      }
+
+      let html = '';
+      const intro = els.finalIntro.value.trim();
+      if (intro) html += `<p>${escapeHtml(intro)}</p>`;
+
+      selected.forEach(product => {
+        html += `<h2>${escapeHtml(product.id_produto)} — ${escapeHtml(product.produto)}</h2>`;
+        html += section('Descrição', product.descricao);
+        html += section('Objetivo', product.objetivo);
+        html += section('Escopo', product.escopo);
+        html += '<h3>Atividades</h3>';
+
+        const acts = (product.atividades || []).filter(a => a.selected && a.texto && a.texto.trim());
+        if (acts.length) {
+          html += '<ul>' + acts.map(a => `<li>${escapeHtml(a.texto)}</li>`).join('') + '</ul>';
+        } else {
+          html += '<p><em>Sem atividades selecionadas.</em></p>';
+        }
+
+        html += section('Entregável', product.entregavel);
+        html += section('Medição', product.medicao);
+        html += section('Critério de Aceite', product.criterio_aceite);
+        html += section('Prazo de Execução', product.prazo_execucao);
+      });
+
+      els.preview.innerHTML = html;
+      updateCountStatus();
+    }
+
+    function section(title, content) {
+      return `<h3>${escapeHtml(title)}</h3><p>${escapeHtml(content || '')}</p>`;
+    }
+
+    function updateCountStatus() {
+      const n = workingData ? workingData.produtos.filter(p => p.selected).length : 0;
+      els.countStatus.textContent = `${n} produto(s) selecionado(s)`;
+    }
+
+    function copyText() {
+      const range = document.createRange();
+      range.selectNodeContents(els.preview);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      try {
+        document.execCommand('copy');
+        showNotice('Texto copiado com sucesso.');
+      } catch {
+        showNotice('Não foi possível copiar automaticamente.', true);
+      }
+      sel.removeAllRanges();
+    }
+
+    function exportUpdatedBase() {
+      if (!workingData) return;
+      const blob = new Blob([JSON.stringify(workingData, null, 2)], {type:'application/json;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'base_atualizada.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(v) {
+      return String(v ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;');
+    }
+
+    // Divisor arrastável
+    (function enableSplitter() {
+      let dragging = false;
+      els.splitter.addEventListener('mousedown', () => dragging = true);
+      window.addEventListener('mouseup', () => dragging = false);
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging || window.innerWidth <= 1320) return;
+        const rect = els.appContainer.getBoundingClientRect();
+        let pct = ((e.clientX - rect.left) / rect.width) * 100;
+        pct = Math.max(52, Math.min(78, pct));
+        document.documentElement.style.setProperty('--left-width', pct + '%');
+      });
+    })();
+
+    els.btnResetEmbedded.addEventListener('click', loadEmbeddedBase);
+    els.jsonFileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const raw = JSON.parse(reader.result);
+          workingData = normalizeBase(raw);
+          saveBase();
+          afterLoad(file.name);
+        } catch {
+          showNotice('Arquivo JSON inválido.', true);
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+
+    els.btnExportBase.addEventListener('click', exportUpdatedBase);
+    els.btnRegenerate.addEventListener('click', regeneratePreview);
+    els.btnCopyText.addEventListener('click', copyText);
+    els.keywordFilter.addEventListener('input', renderProducts);
+    els.macroFilter.addEventListener('change', renderProducts);
+    els.requiredFilter.addEventListener('change', renderProducts);
+    els.finalIntro.addEventListener('input', regeneratePreview);
+
+    els.btnExpandAll.addEventListener('click', () => {
+      if (!workingData) return;
+      openMacros = new Set(workingData.produtos.map(p => p.macroetapa));
+      renderProducts();
+    });
+
+    els.btnCollapseAll.addEventListener('click', () => {
+      openMacros = new Set();
+      renderProducts();
+    });
+
+    els.btnSelectAllVisible.addEventListener('click', () => {
+      getFilteredProducts().forEach(p => p.selected = true);
+      saveBase();
+      regeneratePreview();
+      renderProducts();
+    });
+
+    els.btnClearNonRequired.addEventListener('click', () => {
+      getFilteredProducts().forEach(p => { if (!p.obrigatorio) p.selected = false; });
+      saveBase();
+      regeneratePreview();
+      renderProducts();
+    });
+
+    els.btnResetLocal.addEventListener('click', () => {
+      if (confirm('Deseja apagar as alterações locais e recarregar a base padrão embutida?')) {
+        clearLocal();
+        loadEmbeddedBase();
+      }
+    });
+
+    const local = loadLocal();
+    if (local) {
+      workingData = local;
+      afterLoad('base local');
+    } else {
+      loadEmbeddedBase();
+    }
+  </script>
+</body>
+</html>
